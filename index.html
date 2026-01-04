@@ -58,7 +58,7 @@ button:disabled {
 /* ===== BEAT PULSE ===== */
 #beatPulse {
   position: fixed;
-  bottom: 28px;
+  bottom: 32px;
   left: 50%;
   transform: translateX(-50%) scale(1);
   border-radius: 50%;
@@ -67,54 +67,54 @@ button:disabled {
   pointer-events: none;
 }
 
-/* ===== DOUBLED INTENSITY MODES ===== */
+/* ===== 1.8x BOOSTED MODES ===== */
 .pulse-slow {
   background: #22c55e;
-  width: 20px;
-  height: 20px;
-  --pulse-scale: 1.8;
-  --pulse-opacity: 0.8;
+  width: 36px;
+  height: 36px;
+  --pulse-scale: 2.6;
+  --pulse-opacity: 1;
 }
 
 .pulse-medium {
   background: #facc15;
-  width: 28px;
-  height: 28px;
-  --pulse-scale: 2.2;
-  --pulse-opacity: 0.95;
+  width: 50px;
+  height: 50px;
+  --pulse-scale: 3.2;
+  --pulse-opacity: 1;
 }
 
 .pulse-fast {
   background: #fb923c;
-  width: 34px;
-  height: 34px;
-  --pulse-scale: 2.6;
+  width: 62px;
+  height: 62px;
+  --pulse-scale: 3.8;
   --pulse-opacity: 1;
 }
 
 .pulse-veryfast {
   background: #ef4444;
-  width: 44px;
-  height: 44px;
-  --pulse-scale: 3.0;
+  width: 80px;
+  height: 80px;
+  --pulse-scale: 4.6;
   --pulse-opacity: 1;
 }
 
-/* ===== STRONGER ANIMATION ===== */
+/* ===== STRONG, CLEAR PULSE ===== */
 .pulse {
-  animation: pulse 160ms ease-out;
+  animation: pulse 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @keyframes pulse {
   0% {
     opacity: var(--pulse-opacity);
     transform: translateX(-50%) scale(1);
-    box-shadow: 0 0 0 rgba(255,255,255,0.4);
+    box-shadow: 0 0 0 rgba(255,255,255,0.5);
   }
   100% {
     opacity: 0;
     transform: translateX(-50%) scale(var(--pulse-scale));
-    box-shadow: 0 0 30px rgba(255,255,255,0);
+    box-shadow: 0 0 60px rgba(255,255,255,0);
   }
 }
 </style>
@@ -153,10 +153,10 @@ const BPM = {
 };
 
 const VIBRATION = {
-  Slow: 160,
-  Medium: 240,
-  Fast: 360,
-  "Very Fast": 520
+  Slow: 280,
+  Medium: 430,
+  Fast: 650,
+  "Very Fast": 900
 };
 
 const EXERCISES = Array.from({ length: 15 }, (_, i) => `Exercise ${i + 1}`);
