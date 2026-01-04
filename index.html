@@ -29,41 +29,42 @@ html, body {
   inset: 0;
   pointer-events: none;
   z-index: 20;
-  box-shadow: inset 0 0 0 0 transparent;
 }
 
 .edge-slow {
-  --edge-color: rgba(34,197,94,0.55);
-  --edge-size: 18px;
+  --edge-color: rgba(34,197,94,0.95);
+  --edge-size: 36px;
 }
 
 .edge-medium {
-  --edge-color: rgba(250,204,21,0.7);
-  --edge-size: 26px;
+  --edge-color: rgba(250,204,21,1);
+  --edge-size: 52px;
 }
 
 .edge-fast {
-  --edge-color: rgba(251,146,60,0.85);
-  --edge-size: 34px;
+  --edge-color: rgba(251,146,60,1);
+  --edge-size: 68px;
 }
 
 .edge-veryfast {
   --edge-color: rgba(239,68,68,1);
-  --edge-size: 46px;
+  --edge-size: 92px;
 }
 
 .edge-pulse {
-  animation: edgePulse 180ms ease-out;
+  animation: edgePulse 220ms ease-out;
 }
 
 @keyframes edgePulse {
   from {
     box-shadow:
-      inset 0 0 0 var(--edge-size) var(--edge-color);
+      inset 0 0 0 var(--edge-size) var(--edge-color),
+      inset 0 0 40px var(--edge-color);
   }
   to {
     box-shadow:
-      inset 0 0 0 0 rgba(0,0,0,0);
+      inset 0 0 0 0 rgba(0,0,0,0),
+      inset 0 0 0 rgba(0,0,0,0);
   }
 }
 
@@ -72,36 +73,40 @@ html, body {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  opacity: 0;
   z-index: 25;
+  opacity: 0;
 }
 
 .flash-slow {
   background: radial-gradient(circle,
-    rgba(34,197,94,0.45) 0%,
-    rgba(0,0,0,0) 70%);
+    rgba(34,197,94,0.9) 0%,
+    rgba(34,197,94,0.4) 30%,
+    rgba(0,0,0,0) 75%);
 }
 
 .flash-medium {
   background: radial-gradient(circle,
-    rgba(250,204,21,0.55) 0%,
-    rgba(0,0,0,0) 70%);
+    rgba(250,204,21,1) 0%,
+    rgba(250,204,21,0.5) 30%,
+    rgba(0,0,0,0) 75%);
 }
 
 .flash-fast {
   background: radial-gradient(circle,
-    rgba(251,146,60,0.65) 0%,
-    rgba(0,0,0,0) 70%);
+    rgba(251,146,60,1) 0%,
+    rgba(251,146,60,0.6) 30%,
+    rgba(0,0,0,0) 75%);
 }
 
 .flash-veryfast {
   background: radial-gradient(circle,
-    rgba(239,68,68,0.75) 0%,
-    rgba(0,0,0,0) 70%);
+    rgba(239,68,68,1) 0%,
+    rgba(239,68,68,0.7) 30%,
+    rgba(0,0,0,0) 75%);
 }
 
 .flash {
-  animation: flash 260ms ease-out;
+  animation: flash 320ms ease-out;
 }
 
 @keyframes flash {
@@ -109,7 +114,7 @@ html, body {
   to { opacity: 0; }
 }
 
-/* ================= START BUTTON ================= */
+/* ================= START ================= */
 #overlay {
   position: fixed;
   inset: 0;
@@ -154,10 +159,10 @@ const BPM = {
 };
 
 const VIBRATION = {
-  Slow: 450,
-  Medium: 700,
-  Fast: 1000,
-  "Very Fast": 1400
+  Slow: 900,
+  Medium: 1400,
+  Fast: 2000,
+  "Very Fast": 2800
 };
 
 /* ================= ELEMENTS ================= */
@@ -190,23 +195,19 @@ function startMetronome(bpm, mode) {
 /* ================= VISUALS ================= */
 function triggerEdgePulse(mode) {
   edgePulse.className = "";
-  edgePulse.classList.add(
-    mode === "Slow" ? "edge-slow" :
-    mode === "Medium" ? "edge-medium" :
-    mode === "Fast" ? "edge-fast" :
-    mode === "Very Fast" ? "edge-veryfast" : ""
-  );
+  if (mode === "Slow") edgePulse.classList.add("edge-slow");
+  if (mode === "Medium") edgePulse.classList.add("edge-medium");
+  if (mode === "Fast") edgePulse.classList.add("edge-fast");
+  if (mode === "Very Fast") edgePulse.classList.add("edge-veryfast");
   edgePulse.classList.add("edge-pulse");
 }
 
 function triggerRadialFlash(mode) {
   radialFlash.className = "";
-  radialFlash.classList.add(
-    mode === "Slow" ? "flash-slow" :
-    mode === "Medium" ? "flash-medium" :
-    mode === "Fast" ? "flash-fast" :
-    mode === "Very Fast" ? "flash-veryfast" : ""
-  );
+  if (mode === "Slow") radialFlash.classList.add("flash-slow");
+  if (mode === "Medium") radialFlash.classList.add("flash-medium");
+  if (mode === "Fast") radialFlash.classList.add("flash-fast");
+  if (mode === "Very Fast") radialFlash.classList.add("flash-veryfast");
   radialFlash.classList.add("flash");
 }
 
