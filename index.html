@@ -10,48 +10,49 @@
 
 <style>
 html, body {
-    margin: 0;
-    padding: 0;
-    background: black;
-    height: 100%;
-    overflow: hidden;
+  margin: 0;
+  padding: 0;
+  background: black;
+  height: 100%;
+  overflow: hidden;
 }
 
 #exerciseVideo {
-    position: fixed;
-    inset: 0;
-    width: 100vw;
-    height: 100vh;
-    object-fit: cover;
-    background: black;
+  position: fixed;
+  inset: 0;
+  width: 100vw;
+  height: 100vh;
+  object-fit: cover;
+  background: black;
 }
 
 video::-webkit-media-controls {
-    display: none !important;
+  display: none !important;
 }
 
 #overlay {
-    position: fixed;
-    inset: 0;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    z-index: 10;
-    pointer-events: none;
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 10;
+  pointer-events: none;
 }
 
 button {
-    pointer-events: auto;
-    padding: 18px 28px;
-    font-size: 1.2rem;
-    font-weight: bold;
-    border-radius: 14px;
-    border: none;
-    background: #2563eb;
-    color: white;
+  pointer-events: auto;
+  padding: 18px 28px;
+  font-size: 1.2rem;
+  font-weight: bold;
+  border-radius: 14px;
+  border: none;
+  background: #2563eb;
+  color: white;
 }
+
 button:disabled {
-    background: #334155;
+  background: #334155;
 }
 </style>
 </head>
@@ -66,212 +67,212 @@ button:disabled {
   preload="auto"
 ></video>
 
-<!-- 🔊 Background Audio (manual play, no JS) -->
 <audio
   src="background.mp3"
   controls
   loop
-  style="
-    position: fixed;
-    bottom: 10px;
-    right: 10px;
-    width: 140px;
-    opacity: 0.6;
-    z-index: 20;
-  "
+  style="position:fixed;bottom:10px;right:10px;width:140px;opacity:0.6;z-index:20"
 ></audio>
 
 <div id="overlay">
-    <button id="start">Start</button>
+  <button id="start">Start</button>
 </div>
 
 <script>
-/* ---------- CONFIG ---------- */
+/* ================= CONFIG ================= */
 const PREP_TIME = 10000;
-const MODE_MIN = 5000;
-const MODE_MAX = 35000;
-const EX_MIN = 30000;
-const EX_MAX = 90000;
+const MODE_TIME = [5000, 35000];
+const EX_TIME = [30000, 90000];
 
 const MODES = ["Stop", "Slow", "Medium", "Fast"];
-const EXERCISES = Array.from({ length: 15 }, (_, i) => `Exercise ${i + 1}`);
+const BPM = { Slow: 60, Medium: 100, Fast: 140 };
 
-const EXERCISE_VIDEOS = {
-  "Exercise 1": "1.mp4",
-  "Exercise 2": "2.mp4",
-  "Exercise 3": "3.mp4",
-  "Exercise 4": "4.mp4",
-  "Exercise 5": "5.mp4",
-  "Exercise 6": "6.mp4",
-  "Exercise 7": "7.mp4",
-  "Exercise 8": "8.mp4",
-  "Exercise 9": "9.mp4",
-  "Exercise 10": "10.mp4",
-  "Exercise 11": "11.mp4",
-  "Exercise 12": "12.mp4",
-  "Exercise 13": "13.mp4",
-  "Exercise 14": "14.mp4",
-  "Exercise 15": "15.mp4"
+const EXERCISES = Array.from({ length: 15 }, (_, i) => `Exercise ${i + 1}`);
+const EXERCISE_VIDEOS = Object.fromEntries(
+  EXERCISES.map((e, i) => [e, `${i + 1}.mp4`])
+);
+
+/* ================= STRONG SESSION RNG ================= */
+// Mulberry32 PRNG
+function createRng(seed) {
+  return function () {
+    seed |= 0;
+    seed = seed + 0x6D2B79F5 | 0;
+    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
+    t ^= t + Math.imul(t ^ t >>> 7, 61 | t);
+    return ((t ^ t >>> 14) >>> 0) / 4294967296;
+  };
+}
+
+// High-entropy session seed
+const SESSION_SEED =
+  crypto.getRandomValues(new Uint32Array(1))[0] ^ Date.now();
+
+const rng = createRng(SESSION_SEED);
+
+/* ================= STATE ================= */
+const state = {
+  exerciseDeck: [],
+  modeDeck: [],
+  lastExercise: null,
+  lastMode: null,
+  timers: {}
 };
 
-/* ---------- STATE ---------- */
-let lastMode = null;
-let lastExercise = null;
-let exerciseDeck = [];
-let modeTimeout, exerciseTimeout, prepInterval;
-let metronomeInterval = null;
-
-/* ---------- ELEMENTS ---------- */
+/* ================= ELEMENTS ================= */
 const videoEl = document.getElementById("exerciseVideo");
 const startBtn = document.getElementById("start");
 
-/* ---------- FORCE INLINE VIDEO (iOS FIX) ---------- */
-videoEl.setAttribute("playsinline", "");
-videoEl.setAttribute("webkit-playsinline", "");
-videoEl.controls = false;
-videoEl.disablePictureInPicture = true;
-
-/* ---------- AUDIO ---------- */
+/* ================= AUDIO ================= */
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+let metronomeInterval = null;
 
 function speak(text) {
-    const msg = new SpeechSynthesisUtterance(text);
-    speechSynthesis.speak(msg);
+  speechSynthesis.cancel();
+  speechSynthesis.speak(new SpeechSynthesisUtterance(text));
 }
 
-function vibrate() {
-    if (navigator.vibrate) navigator.vibrate(200);
+function vibrate(ms = 200) {
+  navigator.vibrate?.(ms);
 }
 
-function metronome(bpm) {
-    clearInterval(metronomeInterval);
-    if (!bpm) return;
+function startMetronome(bpm) {
+  clearInterval(metronomeInterval);
+  if (!bpm) return;
 
-    const interval = 60000 / bpm;
-    metronomeInterval = setInterval(() => {
-        const osc = audioCtx.createOscillator();
-        osc.frequency.value = 1000;
-        osc.connect(audioCtx.destination);
-        osc.start();
-        osc.stop(audioCtx.currentTime + 0.05);
-    }, interval);
+  const interval = 60000 / bpm;
+  metronomeInterval = setInterval(() => {
+    const osc = audioCtx.createOscillator();
+    osc.frequency.value = 1000;
+    osc.connect(audioCtx.destination);
+    osc.start();
+    osc.stop(audioCtx.currentTime + 0.05);
+  }, interval);
 }
 
-/* ---------- HELPERS ---------- */
-function rand(min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
+/* ================= HELPERS ================= */
+const rand = (min, max) =>
+  Math.floor(rng() * (max - min + 1)) + min;
+
+function shuffleSeeded(array) {
+  for (let i = array.length - 1; i > 0; i--) {
+    const j = Math.floor(rng() * (i + 1));
+    [array[i], array[j]] = [array[j], array[i]];
+  }
 }
 
-function nextMode() {
-    let mode;
-    do {
-        mode = MODES[Math.floor(Math.random() * MODES.length)];
-    } while (mode === lastMode);
-    lastMode = mode;
-    return mode;
+function rotateDeck(deck) {
+  const n = Math.floor(rng() * deck.length);
+  return deck.slice(n).concat(deck.slice(0, n));
 }
 
-function shuffleArray(array) {
-    const arr = [...array];
-    for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
-}
-
+/* ================= EXERCISE SELECTION ================= */
 function nextExercise() {
-    if (!exerciseDeck.length) {
-        exerciseDeck = shuffleArray(EXERCISES);
-        if (exerciseDeck[0] === lastExercise && exerciseDeck.length > 1) {
-            [exerciseDeck[0], exerciseDeck[1]] = [exerciseDeck[1], exerciseDeck[0]];
-        }
+  if (!state.exerciseDeck.length) {
+    state.exerciseDeck = rotateDeck(
+      shuffleSeeded([...EXERCISES]) || [...EXERCISES]
+    );
+
+    if (state.exerciseDeck[0] === state.lastExercise) {
+      [state.exerciseDeck[0], state.exerciseDeck[1]] =
+      [state.exerciseDeck[1], state.exerciseDeck[0]];
     }
-    const exercise = exerciseDeck.shift();
-    lastExercise = exercise;
-    return exercise;
+  }
+
+  state.lastExercise = state.exerciseDeck.shift();
+  return state.lastExercise;
 }
 
-/* ---------- VIDEO SWITCH (LOOPING ENABLED) ---------- */
+/* ================= MODE SELECTION ================= */
+function nextMode() {
+  if (!state.modeDeck.length) {
+    state.modeDeck = rotateDeck(
+      shuffleSeeded([...MODES]) || [...MODES]
+    );
+
+    if (state.modeDeck[0] === state.lastMode) {
+      [state.modeDeck[0], state.modeDeck[1]] =
+      [state.modeDeck[1], state.modeDeck[0]];
+    }
+  }
+
+  state.lastMode = state.modeDeck.shift();
+  return state.lastMode;
+}
+
+/* ================= VIDEO ================= */
 function playExerciseVideo(exercise) {
-    const src = EXERCISE_VIDEOS[exercise];
-    if (!src) return;
+  const src = EXERCISE_VIDEOS[exercise];
+  if (!src) return;
 
-    videoEl.pause();
-    videoEl.loop = true;          // 🔁 keep looping current exercise
-    videoEl.removeAttribute("src");
-    videoEl.load();
-
-    videoEl.src = src;
-    videoEl.load();
-    videoEl.play().catch(() => {});
+  videoEl.pause();
+  videoEl.loop = true;
+  videoEl.src = src;
+  videoEl.load();
+  videoEl.play().catch(() => {});
 }
 
-/* ---------- GAME FLOW ---------- */
+/* ================= GAME FLOW ================= */
 function startPrep() {
-    startBtn.disabled = true;
-    startBtn.style.display = "none";
-    speechSynthesis.cancel();
+  startBtn.disabled = true;
+  startBtn.style.display = "none";
 
-    const firstExercise = nextExercise();
-    playExerciseVideo(firstExercise);
+  const firstExercise = nextExercise();
+  playExerciseVideo(firstExercise);
 
-    const prepStart = Date.now();
-    let lastSpoken = null;
+  const start = Date.now();
+  let spoken = null;
 
-    prepInterval = setInterval(() => {
-        const remaining = Math.ceil((PREP_TIME - (Date.now() - prepStart)) / 1000);
+  state.timers.prep = setInterval(() => {
+    const remaining = Math.ceil(
+      (PREP_TIME - (Date.now() - start)) / 1000
+    );
 
-        if ([3, 2, 1].includes(remaining) && remaining !== lastSpoken) {
-            speak(remaining.toString());
-            lastSpoken = remaining;
-        }
+    if ([3, 2, 1].includes(remaining) && remaining !== spoken) {
+      speak(remaining);
+      spoken = remaining;
+    }
 
-        if (remaining <= 0) {
-            clearInterval(prepInterval);
-            speak("Go");
-            startGame(firstExercise);
-        }
-    }, 200);
+    if (remaining <= 0) {
+      clearInterval(state.timers.prep);
+      speak("Go");
+      startGame(firstExercise);
+    }
+  }, 200);
 }
 
-function startGame(initialExercise) {
-    scheduleExercise(initialExercise);
-    changeMode();
+function startGame(exercise) {
+  scheduleExercise(exercise);
+  changeMode();
 }
 
-function scheduleExercise(currentExercise) {
-    exerciseTimeout = setTimeout(() => {
-        const next = nextExercise();
-        playExerciseVideo(next);
-        scheduleExercise(next);
-    }, rand(EX_MIN, EX_MAX));
+function scheduleExercise(current) {
+  state.timers.exercise = setTimeout(() => {
+    const next = nextExercise();
+    playExerciseVideo(next);
+    scheduleExercise(next);
+  }, rand(...EX_TIME));
 }
 
 function changeMode() {
-    const mode = nextMode();
-    speak(mode);
-    vibrate();
+  const mode = nextMode();
+  speak(mode);
+  vibrate();
+  startMetronome(BPM[mode]);
 
-    if (mode === "Slow") metronome(60);
-    else if (mode === "Medium") metronome(100);
-    else if (mode === "Fast") metronome(140);
-    else metronome(null);
-
-    modeTimeout = setTimeout(changeMode, rand(MODE_MIN, MODE_MAX));
+  state.timers.mode = setTimeout(changeMode, rand(...MODE_TIME));
 }
 
-/* ---------- EVENTS ---------- */
-startBtn.addEventListener("click", () => {
-    videoEl.muted = true;
-    videoEl.play().catch(() => {});
-    startPrep();
+/* ================= EVENTS ================= */
+startBtn.addEventListener("click", async () => {
+  await audioCtx.resume();
+  videoEl.play().catch(() => {});
+  startPrep();
 });
 
-/* ---------- SERVICE WORKER ---------- */
-if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("sw.js");
-}
+/* ================= SERVICE WORKER ================= */
+navigator.serviceWorker?.register("sw.js");
 </script>
+
 </body>
 </html>
