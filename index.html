@@ -17,11 +17,18 @@ html, body {
   overflow: hidden;
 }
 
-#exerciseVideo {
+/* ===== VIDEO CONTAINER ===== */
+#videoContainer {
   position: fixed;
   inset: 0;
   width: 100vw;
   height: 100vh;
+  background: black;
+}
+
+#exerciseVideo {
+  width: 100%;
+  height: 100%;
   object-fit: cover;
   background: black;
 }
@@ -51,15 +58,9 @@ button {
   color: white;
 }
 
-button:disabled {
-  background: #334155;
-}
-
-/* ===== BEAT PULSE (CENTERED) ===== */
+/* ===== BEAT PULSE ===== */
 #beatPulse {
-  position: fixed;
-  top: 50%;
-  left: 50%;
+  position: absolute;
   transform: translate(-50%, -50%) scale(1);
   border-radius: 50%;
   opacity: 1;
@@ -67,13 +68,12 @@ button:disabled {
   pointer-events: none;
 }
 
-/* ===== 1.8x BOOSTED MODES ===== */
+/* ===== PULSE MODES ===== */
 .pulse-slow {
   background: #22c55e;
   width: 36px;
   height: 36px;
   --pulse-scale: 2.6;
-  --pulse-opacity: 1;
 }
 
 .pulse-medium {
@@ -81,7 +81,6 @@ button:disabled {
   width: 50px;
   height: 50px;
   --pulse-scale: 3.2;
-  --pulse-opacity: 1;
 }
 
 .pulse-fast {
@@ -89,7 +88,6 @@ button:disabled {
   width: 62px;
   height: 62px;
   --pulse-scale: 3.8;
-  --pulse-opacity: 1;
 }
 
 .pulse-veryfast {
@@ -97,24 +95,18 @@ button:disabled {
   width: 80px;
   height: 80px;
   --pulse-scale: 4.6;
-  --pulse-opacity: 1;
 }
 
-/* ===== STRONG, CLEAR PULSE ===== */
 .pulse {
   animation: pulse 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @keyframes pulse {
-  0% {
-    opacity: 1;
+  from {
     transform: translate(-50%, -50%) scale(1);
-    box-shadow: 0 0 0 rgba(255,255,255,0.5);
   }
-  100% {
-    opacity: 1;
+  to {
     transform: translate(-50%, -50%) scale(var(--pulse-scale));
-    box-shadow: 0 0 60px rgba(255,255,255,0);
   }
 }
 </style>
@@ -122,89 +114,55 @@ button:disabled {
 
 <body>
 
-<video id="exerciseVideo" playsinline webkit-playsinline muted preload="auto"></video>
-
-<audio
-  src="background.mp3"
-  controls
-  loop
-  style="position:fixed;bottom:10px;right:10px;width:140px;opacity:0.6;z-index:20">
-</audio>
+<div id="videoContainer">
+  <video id="exerciseVideo" playsinline webkit-playsinline muted preload="auto"></video>
+  <div id="beatPulse"></div>
+</div>
 
 <div id="overlay">
   <button id="start">Start</button>
 </div>
 
-<div id="beatPulse"></div>
-
 <script>
-/* ================= CONFIG ================= */
-const MODE_TIME = [5000, 35000];
-const EX_TIME = [30000, 90000];
-
-const MODES = ["Stop", "Slow", "Medium", "Fast", "Very Fast"];
-
-const BPM = {
-  Slow: 60,
-  Medium: 100,
-  Fast: 140,
-  "Very Fast": 170
-};
-
-const VIBRATION = {
-  Slow: 280,
-  Medium: 430,
-  Fast: 650,
-  "Very Fast": 900
-};
-
-const EXERCISES = Array.from({ length: 15 }, (_, i) => `Exercise ${i + 1}`);
-const EXERCISE_VIDEOS = Object.fromEntries(
-  EXERCISES.map((e, i) => [e, `${i + 1}.mp4`])
-);
-
-/* ================= RNG ================= */
-function createRng(seed) {
-  return function () {
-    seed |= 0;
-    seed = seed + 0x6D2B79F5 | 0;
-    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
-    t ^= t + Math.imul(t ^ t >>> 7, 61 | t);
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
-}
-const rng = createRng(
-  crypto.getRandomValues(new Uint32Array(1))[0] ^ Date.now()
-);
-
-/* ================= STATE ================= */
-const state = { exerciseDeck: [], modeDeck: [], timers: {} };
-
 /* ================= ELEMENTS ================= */
 const videoEl = document.getElementById("exerciseVideo");
-const startBtn = document.getElementById("start");
 const beatPulse = document.getElementById("beatPulse");
 
-/* ================= AUDIO ================= */
-const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-let metronomeInterval = null;
+/* ================= LOCK PULSE TO VIDEO CENTER ================= */
+function updatePulsePosition() {
+  if (!videoEl.videoWidth || !videoEl.videoHeight) return;
 
-function speak(text) {
-  speechSynthesis.cancel();
-  speechSynthesis.speak(new SpeechSynthesisUtterance(text));
+  const container = videoEl.getBoundingClientRect();
+  const videoRatio = videoEl.videoWidth / videoEl.videoHeight;
+  const containerRatio = container.width / container.height;
+
+  let displayWidth, displayHeight;
+
+  if (containerRatio > videoRatio) {
+    displayWidth = container.width;
+    displayHeight = container.width / videoRatio;
+  } else {
+    displayHeight = container.height;
+    displayWidth = container.height * videoRatio;
+  }
+
+  const offsetX = (container.width - displayWidth) / 2;
+  const offsetY = (container.height - displayHeight) / 2;
+
+  beatPulse.style.left = offsetX + displayWidth / 2 + "px";
+  beatPulse.style.top  = offsetY + displayHeight / 2 + "px";
 }
 
-function vibrateForMode(mode) {
-  navigator.vibrate?.(VIBRATION[mode] || 0);
-}
+videoEl.addEventListener("loadedmetadata", updatePulsePosition);
+window.addEventListener("resize", updatePulsePosition);
 
-/* ===== VISUAL PULSE ===== */
+/* ================= PULSE LOGIC ================= */
 function setPulseStyle(mode) {
   beatPulse.className = "";
   if (mode === "Slow") beatPulse.classList.add("pulse-slow");
-  else if (mode === "Medium") beatPulse.classList.add("pulse-medium");
-  else if (mode === "Fast") beatPulse.classList.add("pulse-fast");
-  else if (mode === "Very Fast") beatPulse.classList.add("pulse-veryfast");
+  if (mode === "Medium") beatPulse.classList.add("pulse-medium");
+  if (mode === "Fast") beatPulse.classList.add("pulse-fast");
+  if (mode === "Very Fast") beatPulse.classList.add("pulse-veryfast");
 }
 
 function triggerPulse() {
@@ -213,99 +171,13 @@ function triggerPulse() {
   beatPulse.classList.add("pulse");
 }
 
-/* ===== METRONOME ===== */
-function startMetronome(bpm) {
-  clearInterval(metronomeInterval);
-  if (!bpm) return;
-
-  const interval = 60000 / bpm;
-  metronomeInterval = setInterval(() => {
-    const osc = audioCtx.createOscillator();
-    osc.frequency.value = 1000;
-    osc.connect(audioCtx.destination);
-    osc.start();
-    osc.stop(audioCtx.currentTime + 0.05);
-    triggerPulse();
-  }, interval);
-}
-
-/* ================= HELPERS ================= */
-const rand = (min, max) =>
-  Math.floor(rng() * (max - min + 1)) + min;
-
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
-}
-
-function rotate(deck) {
-  const n = Math.floor(rng() * deck.length);
-  return deck.slice(n).concat(deck.slice(0, n));
-}
-
-/* ================= FLOW ================= */
-function nextExercise() {
-  if (!state.exerciseDeck.length)
-    state.exerciseDeck = rotate(shuffle([...EXERCISES]));
-  return state.exerciseDeck.shift();
-}
-
-function nextMode() {
-  if (!state.modeDeck.length)
-    state.modeDeck = rotate(shuffle([...MODES]));
-  return state.modeDeck.shift();
-}
-
-function playExerciseVideo(ex) {
-  videoEl.pause();
-  videoEl.loop = true;
-  videoEl.src = EXERCISE_VIDEOS[ex];
-  videoEl.load();
-  videoEl.play().catch(() => {});
-}
-
-function requestFullscreen() {
-  document.documentElement.requestFullscreen?.();
-}
-
-/* ================= GAME ================= */
-function startGame() {
-  const first = nextExercise();
-  playExerciseVideo(first);
-  scheduleExercise(first);
-  changeMode();
-}
-
-function scheduleExercise(ex) {
-  state.timers.exercise = setTimeout(() => {
-    const next = nextExercise();
-    playExerciseVideo(next);
-    scheduleExercise(next);
-  }, rand(...EX_TIME));
-}
-
-function changeMode() {
-  const mode = nextMode();
-  speak(mode);
-  vibrateForMode(mode);
-  setPulseStyle(mode);
-  startMetronome(BPM[mode]);
-  state.timers.mode = setTimeout(changeMode, rand(...MODE_TIME));
-}
-
-/* ================= EVENTS ================= */
-startBtn.addEventListener("click", async () => {
-  startBtn.style.display = "none";
-  requestFullscreen();
-  await audioCtx.resume();
-  videoEl.play().catch(() => {});
-  startGame(); /* immediate start, no prep delay */
+/* ================= DEMO START ================= */
+document.getElementById("start").addEventListener("click", () => {
+  videoEl.src = "1.mp4"; // example
+  videoEl.play();
+  setPulseStyle("Medium");
+  setInterval(triggerPulse, 600);
 });
-
-navigator.serviceWorker?.register("sw.js");
 </script>
 </body>
 </html>
