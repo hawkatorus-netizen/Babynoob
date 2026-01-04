@@ -192,12 +192,13 @@ function nextExercise() {
     return exercise;
 }
 
-/* ---------- VIDEO SWITCH ---------- */
+/* ---------- VIDEO SWITCH (LOOPING ENABLED) ---------- */
 function playExerciseVideo(exercise) {
     const src = EXERCISE_VIDEOS[exercise];
     if (!src) return;
 
     videoEl.pause();
+    videoEl.loop = true;          // 🔁 keep looping current exercise
     videoEl.removeAttribute("src");
     videoEl.load();
 
