@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Mode Exercise Game</title>
+
+<link rel="manifest" href="manifest.json" />
+<meta name="theme-color" content="#000000" />
+
+<style>
+html, body {
+    margin: 0;
+    padding: 0;
+    background: black;
+    height: 100%;
+    overflow: hidden;
+}
+
+#exerciseVideo {
+    position: fixed;
+    inset: 0;
+    width: 100vw;
+    height: 100vh;
+    object-fit: cover;
+    background: black;
+}
+
+video::-webkit-media-controls {
+    display: none !important;
+}
+
+#overlay {
+    position: fixed;
+    inset: 0;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 10;
+    pointer-events: none;
+}
+
+button {
+    pointer-events: auto;
+    padding: 18px 28px;
+    font-size: 1.2rem;
+    font-weight: bold;
+    border-radius: 14px;
+    border: none;
+    background: #2563eb;
+    color: white;
+}
+button:disabled {
+    background: #334155;
+}
+</style>
+</head>
+
+<body>
+
+<video
+  id="exerciseVideo"
+  playsinline
+  webkit-playsinline
+  muted
+  preload="auto"
+></video>
+
+<div id="overlay">
+    <button id="start">Start</button>
+</div>
+
+<script>
+/* ---------- CONFIG ---------- */
+const PREP_TIME = 10000;
+const MODE_MIN = 5000;
+const MODE_MAX = 35000;
+const EX_MIN = 30000;
+const EX_MAX = 90000;
+
+const MODES = ["Stop", "Slow", "Medium", "Fast"];
+const EXERCISES = Array.from({ length: 15 }, (_, i) => `Exercise ${i + 1}`);
+
+const EXERCISE_VIDEOS = {
+  "Exercise 1": "1.mp4",
+  "Exercise 2": "2.mp4",
+  "Exercise 3": "3.mp4",
+  "Exercise 4": "4.mp4",
+  "Exercise 5": "5.mp4",
+  "Exercise 6": "6.mp4",
+  "Exercise 7": "7.mp4",
+  "Exercise 8": "8.mp4",
+  "Exercise 9": "9.mp4",
+  "Exercise 10": "10.mp4",
+  "Exercise 11": "11.mp4",
+  "Exercise 12": "12.mp4",
+  "Exercise 13": "13.mp4",
+  "Exercise 14": "14.mp4",
+  "Exercise 15": "15.mp4"
+};
+
+/* ---------- STATE ---------- */
+let lastMode = null;
+let lastExercise = null;
+let exerciseDeck = [];
+let modeTimeout, exerciseTimeout, prepInterval;
+let metronomeInterval = null;
+
+/* ---------- ELEMENTS ---------- */
+const videoEl = document.getElementById("exerciseVideo");
+const startBtn = document.getElementById("start");
+
+/* ---------- FORCE INLINE VIDEO (iOS FIX) ---------- */
+videoEl.setAttribute("playsinline", "");
+videoEl.setAttribute("webkit-playsinline", "");
+videoEl.controls = false;
+videoEl.disablePictureInPicture = true;
+
+/* ---------- AUDIO ---------- */
+const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+
+function speak(text) {
+    const msg = new SpeechSynthesisUtterance(text);
+    speechSynthesis.speak(msg);
+}
+
+function vibrate() {
+    if (navigator.vibrate) navigator.vibrate(200);
+}
+
+function metronome(bpm) {
+    clearInterval(metronomeInterval);
+    if (!bpm) return;
+
+    const interval = 60000 / bpm;
+    metronomeInterval = setInterval(() => {
+        const osc = audioCtx.createOscillator();
+        osc.frequency.value = 1000;
+        osc.connect(audioCtx.destination);
+        osc.start();
+        osc.stop(audioCtx.currentTime + 0.05);
+    }, interval);
+}
+
+/* ---------- HELPERS ---------- */
+function rand(min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
+function nextMode() {
+    let mode;
+    do {
+        mode = MODES[Math.floor(Math.random() * MODES.length)];
+    } while (mode === lastMode);
+    lastMode = mode;
+    return mode;
+}
+
+// 🔹 Shuffle array
+function shuffleArray(array) {
+    const arr = [...array];
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
+}
+
+// 🔹 Next exercise from deck
+function nextExercise() {
+    if (!exerciseDeck.length) {
+        exerciseDeck = shuffleArray(EXERCISES);
+        // prevent first in new deck from repeating last exercise
+        if (exerciseDeck[0] === lastExercise && exerciseDeck.length > 1) {
+            const temp = exerciseDeck[0];
+            exerciseDeck[0] = exerciseDeck[1];
+            exerciseDeck[1] = temp;
+        }
+    }
+    const exercise = exerciseDeck.shift();
+    lastExercise = exercise;
+    return exercise;
+}
+
+/* ---------- VIDEO SWITCH ---------- */
+function playExerciseVideo(exercise) {
+    const src = EXERCISE_VIDEOS[exercise];
+    if (!src) return;
+
+    videoEl.pause();
+    videoEl.removeAttribute("src");
+    videoEl.load();
+
+    videoEl.src = src;
+    videoEl.load();
+    videoEl.play().catch(() => {});
+}
+
+/* ---------- GAME FLOW ---------- */
+function startPrep() {
+    startBtn.disabled = true;
+    startBtn.style.display = "none";
+    speechSynthesis.cancel();
+
+    const firstExercise = nextExercise();
+    playExerciseVideo(firstExercise);
+    speak(firstExercise);
+
+    const prepStart = Date.now();
+    let lastSpoken = null;
+
+    prepInterval = setInterval(() => {
+        const remaining = Math.ceil((PREP_TIME - (Date.now() - prepStart)) / 1000);
+
+        if ([3, 2, 1].includes(remaining) && remaining !== lastSpoken) {
+            speak(remaining.toString());
+            lastSpoken = remaining;
+        }
+
+        if (remaining <= 0) {
+            clearInterval(prepInterval);
+            speak("Go");
+            startGame(firstExercise);
+        }
+    }, 200);
+}
+
+function startGame(initialExercise) {
+    scheduleExercise(initialExercise);
+    changeMode();
+}
+
+function scheduleExercise(currentExercise) {
+    exerciseTimeout = setTimeout(() => {
+        const next = nextExercise();
+        playExerciseVideo(next);
+        speak(next);
+        scheduleExercise(next);
+    }, rand(EX_MIN, EX_MAX));
+}
+
+function changeMode() {
+    const mode = nextMode();
+    speak(mode);
+    vibrate();
+
+    if (mode === "Slow") metronome(60);
+    else if (mode === "Medium") metronome(100);
+    else if (mode === "Fast") metronome(140);
+    else metronome(null);
+
+    modeTimeout = setTimeout(changeMode, rand(MODE_MIN, MODE_MAX));
+}
+
+/* ---------- EVENTS ---------- */
+startBtn.addEventListener("click", () => {
+    videoEl.muted = true;
+    videoEl.play().catch(() => {});
+    startPrep();
+});
+
+/* ---------- SERVICE WORKER ---------- */
+if ("serviceWorker" in navigator) {
+    navigator.serviceWorker.register("sw.js");
+}
+</script>
+</body>
+</html>
