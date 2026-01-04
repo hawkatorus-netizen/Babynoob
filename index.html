@@ -5,9 +5,6 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0" />
 <title>Mode Exercise Game</title>
 
-<link rel="manifest" href="manifest.json" />
-<meta name="theme-color" content="#000000" />
-
 <style>
 html, body {
   margin: 0;
@@ -17,31 +14,112 @@ html, body {
   overflow: hidden;
 }
 
+/* ================= VIDEO ================= */
 #exerciseVideo {
   position: fixed;
   inset: 0;
   width: 100vw;
   height: 100vh;
   object-fit: cover;
-  background: black;
 }
 
-video::-webkit-media-controls {
-  display: none !important;
+/* ================= EDGE PULSE ================= */
+#edgePulse {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 20;
+  box-shadow: inset 0 0 0 0 transparent;
 }
 
+.edge-slow {
+  --edge-color: rgba(34,197,94,0.55);
+  --edge-size: 18px;
+}
+
+.edge-medium {
+  --edge-color: rgba(250,204,21,0.7);
+  --edge-size: 26px;
+}
+
+.edge-fast {
+  --edge-color: rgba(251,146,60,0.85);
+  --edge-size: 34px;
+}
+
+.edge-veryfast {
+  --edge-color: rgba(239,68,68,1);
+  --edge-size: 46px;
+}
+
+.edge-pulse {
+  animation: edgePulse 180ms ease-out;
+}
+
+@keyframes edgePulse {
+  from {
+    box-shadow:
+      inset 0 0 0 var(--edge-size) var(--edge-color);
+  }
+  to {
+    box-shadow:
+      inset 0 0 0 0 rgba(0,0,0,0);
+  }
+}
+
+/* ================= RADIAL FLASH ================= */
+#radialFlash {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  z-index: 25;
+}
+
+.flash-slow {
+  background: radial-gradient(circle,
+    rgba(34,197,94,0.45) 0%,
+    rgba(0,0,0,0) 70%);
+}
+
+.flash-medium {
+  background: radial-gradient(circle,
+    rgba(250,204,21,0.55) 0%,
+    rgba(0,0,0,0) 70%);
+}
+
+.flash-fast {
+  background: radial-gradient(circle,
+    rgba(251,146,60,0.65) 0%,
+    rgba(0,0,0,0) 70%);
+}
+
+.flash-veryfast {
+  background: radial-gradient(circle,
+    rgba(239,68,68,0.75) 0%,
+    rgba(0,0,0,0) 70%);
+}
+
+.flash {
+  animation: flash 260ms ease-out;
+}
+
+@keyframes flash {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+
+/* ================= START BUTTON ================= */
 #overlay {
   position: fixed;
   inset: 0;
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 10;
-  pointer-events: none;
+  z-index: 30;
 }
 
 button {
-  pointer-events: auto;
   padding: 18px 28px;
   font-size: 1.2rem;
   font-weight: bold;
@@ -50,99 +128,22 @@ button {
   background: #2563eb;
   color: white;
 }
-
-button:disabled {
-  background: #334155;
-}
-
-/* ===== BEAT PULSE ===== */
-#beatPulse {
-  position: fixed;
-  bottom: 32px;
-  left: 50%;
-  transform: translateX(-50%) scale(1);
-  border-radius: 50%;
-  opacity: 0;
-  z-index: 15;
-  pointer-events: none;
-}
-
-/* ===== 1.8x BOOSTED MODES ===== */
-.pulse-slow {
-  background: #22c55e;
-  width: 36px;
-  height: 36px;
-  --pulse-scale: 2.6;
-  --pulse-opacity: 1;
-}
-
-.pulse-medium {
-  background: #facc15;
-  width: 50px;
-  height: 50px;
-  --pulse-scale: 3.2;
-  --pulse-opacity: 1;
-}
-
-.pulse-fast {
-  background: #fb923c;
-  width: 62px;
-  height: 62px;
-  --pulse-scale: 3.8;
-  --pulse-opacity: 1;
-}
-
-.pulse-veryfast {
-  background: #ef4444;
-  width: 80px;
-  height: 80px;
-  --pulse-scale: 4.6;
-  --pulse-opacity: 1;
-}
-
-/* ===== STRONG, CLEAR PULSE ===== */
-.pulse {
-  animation: pulse 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
-}
-
-@keyframes pulse {
-  0% {
-    opacity: var(--pulse-opacity);
-    transform: translateX(-50%) scale(1);
-    box-shadow: 0 0 0 rgba(255,255,255,0.5);
-  }
-  100% {
-    opacity: 0;
-    transform: translateX(-50%) scale(var(--pulse-scale));
-    box-shadow: 0 0 60px rgba(255,255,255,0);
-  }
-}
 </style>
 </head>
 
 <body>
 
-<video id="exerciseVideo" playsinline webkit-playsinline muted preload="auto"></video>
+<video id="exerciseVideo" muted playsinline></video>
 
-<audio
-  src="background.mp3"
-  controls
-  loop
-  style="position:fixed;bottom:10px;right:10px;width:140px;opacity:0.6;z-index:20">
-</audio>
+<div id="edgePulse"></div>
+<div id="radialFlash"></div>
 
 <div id="overlay">
   <button id="start">Start</button>
 </div>
 
-<div id="beatPulse"></div>
-
 <script>
 /* ================= CONFIG ================= */
-const PREP_TIME = 10000;
-const MODE_TIME = [5000, 35000];
-const EX_TIME = [30000, 90000];
-
 const MODES = ["Stop", "Slow", "Medium", "Fast", "Very Fast"];
 
 const BPM = {
@@ -153,179 +154,83 @@ const BPM = {
 };
 
 const VIBRATION = {
-  Slow: 280,
-  Medium: 430,
-  Fast: 650,
-  "Very Fast": 900
+  Slow: 450,
+  Medium: 700,
+  Fast: 1000,
+  "Very Fast": 1400
 };
 
-const EXERCISES = Array.from({ length: 15 }, (_, i) => `Exercise ${i + 1}`);
-const EXERCISE_VIDEOS = Object.fromEntries(
-  EXERCISES.map((e, i) => [e, `${i + 1}.mp4`])
-);
-
-/* ================= RNG ================= */
-function createRng(seed) {
-  return function () {
-    seed |= 0;
-    seed = seed + 0x6D2B79F5 | 0;
-    let t = Math.imul(seed ^ seed >>> 15, 1 | seed);
-    t ^= t + Math.imul(t ^ t >>> 7, 61 | t);
-    return ((t ^ t >>> 14) >>> 0) / 4294967296;
-  };
-}
-const rng = createRng(
-  crypto.getRandomValues(new Uint32Array(1))[0] ^ Date.now()
-);
-
-/* ================= STATE ================= */
-const state = { exerciseDeck: [], modeDeck: [], timers: {} };
-
 /* ================= ELEMENTS ================= */
-const videoEl = document.getElementById("exerciseVideo");
+const edgePulse = document.getElementById("edgePulse");
+const radialFlash = document.getElementById("radialFlash");
 const startBtn = document.getElementById("start");
-const beatPulse = document.getElementById("beatPulse");
 
-/* ================= AUDIO ================= */
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-let metronomeInterval = null;
+let metronomeInterval;
 
-function speak(text) {
-  speechSynthesis.cancel();
-  speechSynthesis.speak(new SpeechSynthesisUtterance(text));
-}
-
-function vibrateForMode(mode) {
-  navigator.vibrate?.(VIBRATION[mode] || 0);
-}
-
-/* ===== VISUAL PULSE ===== */
-function setPulseStyle(mode) {
-  beatPulse.className = "";
-  if (mode === "Slow") beatPulse.classList.add("pulse-slow");
-  else if (mode === "Medium") beatPulse.classList.add("pulse-medium");
-  else if (mode === "Fast") beatPulse.classList.add("pulse-fast");
-  else if (mode === "Very Fast") beatPulse.classList.add("pulse-veryfast");
-}
-
-function triggerPulse() {
-  beatPulse.classList.remove("pulse");
-  void beatPulse.offsetWidth;
-  beatPulse.classList.add("pulse");
-}
-
-/* ===== METRONOME ===== */
-function startMetronome(bpm) {
+/* ================= METRONOME ================= */
+function startMetronome(bpm, mode) {
   clearInterval(metronomeInterval);
   if (!bpm) return;
 
   const interval = 60000 / bpm;
+
   metronomeInterval = setInterval(() => {
     const osc = audioCtx.createOscillator();
     osc.frequency.value = 1000;
     osc.connect(audioCtx.destination);
     osc.start();
     osc.stop(audioCtx.currentTime + 0.05);
-    triggerPulse();
+
+    triggerEdgePulse(mode);
+    navigator.vibrate?.(VIBRATION[mode]);
   }, interval);
 }
 
-/* ================= HELPERS ================= */
-const rand = (min, max) =>
-  Math.floor(rng() * (max - min + 1)) + min;
-
-function shuffle(arr) {
-  for (let i = arr.length - 1; i > 0; i--) {
-    const j = Math.floor(rng() * (i + 1));
-    [arr[i], arr[j]] = [arr[j], arr[i]];
-  }
-  return arr;
+/* ================= VISUALS ================= */
+function triggerEdgePulse(mode) {
+  edgePulse.className = "";
+  edgePulse.classList.add(
+    mode === "Slow" ? "edge-slow" :
+    mode === "Medium" ? "edge-medium" :
+    mode === "Fast" ? "edge-fast" :
+    mode === "Very Fast" ? "edge-veryfast" : ""
+  );
+  edgePulse.classList.add("edge-pulse");
 }
 
-function rotate(deck) {
-  const n = Math.floor(rng() * deck.length);
-  return deck.slice(n).concat(deck.slice(0, n));
+function triggerRadialFlash(mode) {
+  radialFlash.className = "";
+  radialFlash.classList.add(
+    mode === "Slow" ? "flash-slow" :
+    mode === "Medium" ? "flash-medium" :
+    mode === "Fast" ? "flash-fast" :
+    mode === "Very Fast" ? "flash-veryfast" : ""
+  );
+  radialFlash.classList.add("flash");
 }
 
-/* ================= FLOW ================= */
-function nextExercise() {
-  if (!state.exerciseDeck.length)
-    state.exerciseDeck = rotate(shuffle([...EXERCISES]));
-  return state.exerciseDeck.shift();
-}
+/* ================= MODE LOOP ================= */
+let modeIndex = 0;
 
 function nextMode() {
-  if (!state.modeDeck.length)
-    state.modeDeck = rotate(shuffle([...MODES]));
-  return state.modeDeck.shift();
+  modeIndex = (modeIndex + 1) % MODES.length;
+  const mode = MODES[modeIndex];
+
+  triggerRadialFlash(mode);
+  startMetronome(BPM[mode], mode);
+
+  setTimeout(nextMode, 8000 + Math.random() * 12000);
 }
 
-function playExerciseVideo(ex) {
-  videoEl.pause();
-  videoEl.loop = true;
-  videoEl.src = EXERCISE_VIDEOS[ex];
-  videoEl.load();
-  videoEl.play().catch(() => {});
-}
-
-function requestFullscreen() {
-  document.documentElement.requestFullscreen?.();
-}
-
-/* ================= GAME ================= */
-function startPrep() {
+/* ================= START ================= */
+startBtn.onclick = async () => {
   startBtn.style.display = "none";
-  const first = nextExercise();
-  playExerciseVideo(first);
-
-  const start = Date.now();
-  let last = null;
-
-  state.timers.prep = setInterval(() => {
-    const r = Math.ceil((PREP_TIME - (Date.now() - start)) / 1000);
-    if ([3,2,1].includes(r) && r !== last) {
-      speak(r);
-      last = r;
-    }
-    if (r <= 0) {
-      clearInterval(state.timers.prep);
-      speak("Go");
-      startGame(first);
-    }
-  }, 200);
-}
-
-function startGame(ex) {
-  scheduleExercise(ex);
-  changeMode();
-}
-
-function scheduleExercise(ex) {
-  state.timers.exercise = setTimeout(() => {
-    const next = nextExercise();
-    playExerciseVideo(next);
-    scheduleExercise(next);
-  }, rand(...EX_TIME));
-}
-
-function changeMode() {
-  const mode = nextMode();
-  speak(mode);
-  vibrateForMode(mode);
-  setPulseStyle(mode);
-  startMetronome(BPM[mode]);
-  state.timers.mode = setTimeout(changeMode, rand(...MODE_TIME));
-}
-
-/* ================= EVENTS ================= */
-startBtn.addEventListener("click", async () => {
-  requestFullscreen();
   await audioCtx.resume();
-  videoEl.play().catch(() => {});
-  startPrep();
-});
-
-navigator.serviceWorker?.register("sw.js");
+  document.documentElement.requestFullscreen?.();
+  nextMode();
+};
 </script>
+
 </body>
 </html>
