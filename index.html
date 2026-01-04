@@ -55,14 +55,14 @@ button:disabled {
   background: #334155;
 }
 
-/* ===== BEAT PULSE ===== */
+/* ===== BEAT PULSE (CENTERED) ===== */
 #beatPulse {
   position: fixed;
-  bottom: 32px;
+  top: 50%;
   left: 50%;
-  transform: translateX(-50%) scale(1);
+  transform: translate(-50%, -50%) scale(1);
   border-radius: 50%;
-  opacity: 0.3; /* Option A: always visible */
+  opacity: 0.3;
   z-index: 15;
   pointer-events: none;
 }
@@ -102,18 +102,18 @@ button:disabled {
 
 /* ===== STRONG, CLEAR PULSE ===== */
 .pulse {
-  animation: pulse 420ms cubic-bezier(0.2, 0.8, 0.2, 1); /* Option C */
+  animation: pulse 420ms cubic-bezier(0.2, 0.8, 0.2, 1);
 }
 
 @keyframes pulse {
   0% {
     opacity: 1;
-    transform: translateX(-50%) scale(1);
+    transform: translate(-50%, -50%) scale(1);
     box-shadow: 0 0 0 rgba(255,255,255,0.5);
   }
   100% {
-    opacity: 0.3; /* Option B: never fully disappears */
-    transform: translateX(-50%) scale(var(--pulse-scale));
+    opacity: 0.3;
+    transform: translate(-50%, -50%) scale(var(--pulse-scale));
     box-shadow: 0 0 60px rgba(255,255,255,0);
   }
 }
@@ -139,7 +139,6 @@ button:disabled {
 
 <script>
 /* ================= CONFIG ================= */
-const PREP_TIME = 10000;
 const MODE_TIME = [5000, 35000];
 const EX_TIME = [30000, 90000];
 
@@ -273,30 +272,10 @@ function requestFullscreen() {
 }
 
 /* ================= GAME ================= */
-function startPrep() {
-  startBtn.style.display = "none";
+function startGame() {
   const first = nextExercise();
   playExerciseVideo(first);
-
-  const start = Date.now();
-  let last = null;
-
-  state.timers.prep = setInterval(() => {
-    const r = Math.ceil((PREP_TIME - (Date.now() - start)) / 1000);
-    if ([3,2,1].includes(r) && r !== last) {
-      speak(r);
-      last = r;
-    }
-    if (r <= 0) {
-      clearInterval(state.timers.prep);
-      speak("Go");
-      startGame(first);
-    }
-  }, 200);
-}
-
-function startGame(ex) {
-  scheduleExercise(ex);
+  scheduleExercise(first);
   changeMode();
 }
 
@@ -319,10 +298,11 @@ function changeMode() {
 
 /* ================= EVENTS ================= */
 startBtn.addEventListener("click", async () => {
+  startBtn.style.display = "none";
   requestFullscreen();
   await audioCtx.resume();
   videoEl.play().catch(() => {});
-  startPrep();
+  startGame(); /* immediate start, no prep delay */
 });
 
 navigator.serviceWorker?.register("sw.js");
