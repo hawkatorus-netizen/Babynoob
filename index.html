@@ -36,25 +36,25 @@ html, body {
 
 .flash-slow {
   background: radial-gradient(circle,
-    rgba(34,197,94,0.45) 0%,
+    rgba(34,197,94,0.5) 0%,
     rgba(0,0,0,0) 65%);
 }
 
 .flash-medium {
   background: radial-gradient(circle,
-    rgba(250,204,21,0.55) 0%,
+    rgba(250,204,21,0.6) 0%,
     rgba(0,0,0,0) 65%);
 }
 
 .flash-fast {
   background: radial-gradient(circle,
-    rgba(251,146,60,0.65) 0%,
+    rgba(251,146,60,0.7) 0%,
     rgba(0,0,0,0) 65%);
 }
 
 .flash-veryfast {
   background: radial-gradient(circle,
-    rgba(239,68,68,0.75) 0%,
+    rgba(239,68,68,0.8) 0%,
     rgba(0,0,0,0) 65%);
 }
 
@@ -76,23 +76,23 @@ html, body {
 }
 
 .edge-slow {
-  --edge-color: rgba(34,197,94,0.6);
-  --edge-size: 24px;
+  --edge-color: rgba(34,197,94,0.7);
+  --edge-size: 28px;
 }
 
 .edge-medium {
-  --edge-color: rgba(250,204,21,0.7);
-  --edge-size: 34px;
+  --edge-color: rgba(250,204,21,0.8);
+  --edge-size: 40px;
 }
 
 .edge-fast {
-  --edge-color: rgba(251,146,60,0.8);
-  --edge-size: 44px;
+  --edge-color: rgba(251,146,60,0.9);
+  --edge-size: 52px;
 }
 
 .edge-veryfast {
-  --edge-color: rgba(239,68,68,0.9);
-  --edge-size: 56px;
+  --edge-color: rgba(239,68,68,1);
+  --edge-size: 66px;
 }
 
 .edge-pulse {
@@ -148,12 +148,28 @@ button {
 </div>
 
 <script>
-/* ================= CONFIG ================= */
-const EXERCISES = Array.from({ length: 15 }, (_, i) => `Exercise ${i + 1}`);
-const EXERCISE_VIDEOS = Object.fromEntries(
-  EXERCISES.map((e, i) => [e, `${i + 1}.mp4`])
-);
+/* ================= EXERCISES ================= */
+const EXERCISE_VIDEOS = {
+  "Exercise 1": "1.mp4",
+  "Exercise 2": "2.mp4",
+  "Exercise 3": "3.mp4",
+  "Exercise 4": "4.mp4",
+  "Exercise 5": "5.mp4",
+  "Exercise 6": "6.mp4",
+  "Exercise 7": "7.mp4",
+  "Exercise 8": "8.mp4",
+  "Exercise 9": "9.mp4",
+  "Exercise 10": "10.mp4",
+  "Exercise 11": "11.mp4",
+  "Exercise 12": "12.mp4",
+  "Exercise 13": "13.mp4",
+  "Exercise 14": "14.mp4",
+  "Exercise 15": "15.mp4"
+};
 
+const EXERCISES = Object.keys(EXERCISE_VIDEOS);
+
+/* ================= MODES ================= */
 const MODES = ["Slow", "Medium", "Fast", "Very Fast"];
 
 const BPM = {
@@ -171,6 +187,31 @@ const startBtn = document.getElementById("start");
 
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 let metronomeInterval;
+
+/* ================= RANDOMIZATION ================= */
+let exerciseDeck = [];
+let lastExercise = null;
+
+function shuffle(array) {
+  const a = [...array];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+function nextExercise() {
+  if (!exerciseDeck.length) {
+    exerciseDeck = shuffle(EXERCISES);
+    if (exerciseDeck[0] === lastExercise && exerciseDeck.length > 1) {
+      [exerciseDeck[0], exerciseDeck[1]] =
+      [exerciseDeck[1], exerciseDeck[0]];
+    }
+  }
+  lastExercise = exerciseDeck.shift();
+  return lastExercise;
+}
 
 /* ================= VIDEO ================= */
 function playExerciseVideo(name) {
@@ -230,8 +271,13 @@ startBtn.onclick = async () => {
   startBtn.style.display = "none";
   document.documentElement.requestFullscreen?.();
   await audioCtx.resume();
-  playExerciseVideo("Exercise 1");
+
+  playExerciseVideo(nextExercise());
   nextMode();
+
+  setInterval(() => {
+    playExerciseVideo(nextExercise());
+  }, 45000);
 };
 </script>
 
