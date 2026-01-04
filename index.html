@@ -21,51 +21,7 @@ html, body {
   width: 100vw;
   height: 100vh;
   object-fit: cover;
-}
-
-/* ================= EDGE PULSE ================= */
-#edgePulse {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  z-index: 20;
-}
-
-.edge-slow {
-  --edge-color: rgba(34,197,94,0.95);
-  --edge-size: 36px;
-}
-
-.edge-medium {
-  --edge-color: rgba(250,204,21,1);
-  --edge-size: 52px;
-}
-
-.edge-fast {
-  --edge-color: rgba(251,146,60,1);
-  --edge-size: 68px;
-}
-
-.edge-veryfast {
-  --edge-color: rgba(239,68,68,1);
-  --edge-size: 92px;
-}
-
-.edge-pulse {
-  animation: edgePulse 220ms ease-out;
-}
-
-@keyframes edgePulse {
-  from {
-    box-shadow:
-      inset 0 0 0 var(--edge-size) var(--edge-color),
-      inset 0 0 40px var(--edge-color);
-  }
-  to {
-    box-shadow:
-      inset 0 0 0 0 rgba(0,0,0,0),
-      inset 0 0 0 rgba(0,0,0,0);
-  }
+  z-index: 1;
 }
 
 /* ================= RADIAL FLASH ================= */
@@ -73,40 +29,37 @@ html, body {
   position: fixed;
   inset: 0;
   pointer-events: none;
-  z-index: 25;
+  z-index: 2;
   opacity: 0;
+  mix-blend-mode: screen;
 }
 
 .flash-slow {
   background: radial-gradient(circle,
-    rgba(34,197,94,0.9) 0%,
-    rgba(34,197,94,0.4) 30%,
-    rgba(0,0,0,0) 75%);
+    rgba(34,197,94,0.45) 0%,
+    rgba(0,0,0,0) 65%);
 }
 
 .flash-medium {
   background: radial-gradient(circle,
-    rgba(250,204,21,1) 0%,
-    rgba(250,204,21,0.5) 30%,
-    rgba(0,0,0,0) 75%);
+    rgba(250,204,21,0.55) 0%,
+    rgba(0,0,0,0) 65%);
 }
 
 .flash-fast {
   background: radial-gradient(circle,
-    rgba(251,146,60,1) 0%,
-    rgba(251,146,60,0.6) 30%,
-    rgba(0,0,0,0) 75%);
+    rgba(251,146,60,0.65) 0%,
+    rgba(0,0,0,0) 65%);
 }
 
 .flash-veryfast {
   background: radial-gradient(circle,
-    rgba(239,68,68,1) 0%,
-    rgba(239,68,68,0.7) 30%,
-    rgba(0,0,0,0) 75%);
+    rgba(239,68,68,0.75) 0%,
+    rgba(0,0,0,0) 65%);
 }
 
 .flash {
-  animation: flash 320ms ease-out;
+  animation: flash 260ms ease-out;
 }
 
 @keyframes flash {
@@ -114,14 +67,55 @@ html, body {
   to { opacity: 0; }
 }
 
-/* ================= START ================= */
+/* ================= EDGE PULSE ================= */
+#edgePulse {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 3;
+}
+
+.edge-slow {
+  --edge-color: rgba(34,197,94,0.6);
+  --edge-size: 24px;
+}
+
+.edge-medium {
+  --edge-color: rgba(250,204,21,0.7);
+  --edge-size: 34px;
+}
+
+.edge-fast {
+  --edge-color: rgba(251,146,60,0.8);
+  --edge-size: 44px;
+}
+
+.edge-veryfast {
+  --edge-color: rgba(239,68,68,0.9);
+  --edge-size: 56px;
+}
+
+.edge-pulse {
+  animation: edgePulse 180ms ease-out;
+}
+
+@keyframes edgePulse {
+  from {
+    box-shadow: inset 0 0 0 var(--edge-size) var(--edge-color);
+  }
+  to {
+    box-shadow: inset 0 0 0 0 rgba(0,0,0,0);
+  }
+}
+
+/* ================= UI ================= */
 #overlay {
   position: fixed;
   inset: 0;
   display: flex;
   justify-content: center;
   align-items: center;
-  z-index: 30;
+  z-index: 10;
 }
 
 button {
@@ -138,10 +132,16 @@ button {
 
 <body>
 
-<video id="exerciseVideo" muted playsinline></video>
+<video
+  id="exerciseVideo"
+  muted
+  playsinline
+  webkit-playsinline
+  loop
+></video>
 
-<div id="edgePulse"></div>
 <div id="radialFlash"></div>
+<div id="edgePulse"></div>
 
 <div id="overlay">
   <button id="start">Start</button>
@@ -149,7 +149,12 @@ button {
 
 <script>
 /* ================= CONFIG ================= */
-const MODES = ["Stop", "Slow", "Medium", "Fast", "Very Fast"];
+const EXERCISES = Array.from({ length: 15 }, (_, i) => `Exercise ${i + 1}`);
+const EXERCISE_VIDEOS = Object.fromEntries(
+  EXERCISES.map((e, i) => [e, `${i + 1}.mp4`])
+);
+
+const MODES = ["Slow", "Medium", "Fast", "Very Fast"];
 
 const BPM = {
   Slow: 60,
@@ -158,14 +163,8 @@ const BPM = {
   "Very Fast": 170
 };
 
-const VIBRATION = {
-  Slow: 900,
-  Medium: 1400,
-  Fast: 2000,
-  "Very Fast": 2800
-};
-
 /* ================= ELEMENTS ================= */
+const video = document.getElementById("exerciseVideo");
 const edgePulse = document.getElementById("edgePulse");
 const radialFlash = document.getElementById("radialFlash");
 const startBtn = document.getElementById("start");
@@ -173,62 +172,65 @@ const startBtn = document.getElementById("start");
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
 let metronomeInterval;
 
+/* ================= VIDEO ================= */
+function playExerciseVideo(name) {
+  video.src = EXERCISE_VIDEOS[name];
+  video.load();
+  video.play().catch(() => {});
+}
+
+/* ================= VISUALS ================= */
+function triggerEdgePulse(mode) {
+  edgePulse.className = "";
+  edgePulse.classList.add(
+    mode === "Slow" ? "edge-slow" :
+    mode === "Medium" ? "edge-medium" :
+    mode === "Fast" ? "edge-fast" :
+    "edge-veryfast",
+    "edge-pulse"
+  );
+}
+
+function triggerRadialFlash(mode) {
+  radialFlash.className = "";
+  radialFlash.classList.add(
+    mode === "Slow" ? "flash-slow" :
+    mode === "Medium" ? "flash-medium" :
+    mode === "Fast" ? "flash-fast" :
+    "flash-veryfast",
+    "flash"
+  );
+}
+
 /* ================= METRONOME ================= */
 function startMetronome(bpm, mode) {
   clearInterval(metronomeInterval);
-  if (!bpm) return;
-
-  const interval = 60000 / bpm;
-
   metronomeInterval = setInterval(() => {
     const osc = audioCtx.createOscillator();
     osc.frequency.value = 1000;
     osc.connect(audioCtx.destination);
     osc.start();
     osc.stop(audioCtx.currentTime + 0.05);
-
     triggerEdgePulse(mode);
-    navigator.vibrate?.(VIBRATION[mode]);
-  }, interval);
+  }, 60000 / bpm);
 }
 
-/* ================= VISUALS ================= */
-function triggerEdgePulse(mode) {
-  edgePulse.className = "";
-  if (mode === "Slow") edgePulse.classList.add("edge-slow");
-  if (mode === "Medium") edgePulse.classList.add("edge-medium");
-  if (mode === "Fast") edgePulse.classList.add("edge-fast");
-  if (mode === "Very Fast") edgePulse.classList.add("edge-veryfast");
-  edgePulse.classList.add("edge-pulse");
-}
-
-function triggerRadialFlash(mode) {
-  radialFlash.className = "";
-  if (mode === "Slow") radialFlash.classList.add("flash-slow");
-  if (mode === "Medium") radialFlash.classList.add("flash-medium");
-  if (mode === "Fast") radialFlash.classList.add("flash-fast");
-  if (mode === "Very Fast") radialFlash.classList.add("flash-veryfast");
-  radialFlash.classList.add("flash");
-}
-
-/* ================= MODE LOOP ================= */
+/* ================= FLOW ================= */
 let modeIndex = 0;
 
 function nextMode() {
-  modeIndex = (modeIndex + 1) % MODES.length;
-  const mode = MODES[modeIndex];
-
+  const mode = MODES[modeIndex++ % MODES.length];
   triggerRadialFlash(mode);
   startMetronome(BPM[mode], mode);
-
-  setTimeout(nextMode, 8000 + Math.random() * 12000);
+  setTimeout(nextMode, 8000);
 }
 
 /* ================= START ================= */
 startBtn.onclick = async () => {
   startBtn.style.display = "none";
-  await audioCtx.resume();
   document.documentElement.requestFullscreen?.();
+  await audioCtx.resume();
+  playExerciseVideo("Exercise 1");
   nextMode();
 };
 </script>
