@@ -66,6 +66,21 @@ button:disabled {
   preload="auto"
 ></video>
 
+<!-- 🔊 Background Audio (manual play, no JS) -->
+<audio
+  src="background.mp3"
+  controls
+  loop
+  style="
+    position: fixed;
+    bottom: 10px;
+    right: 10px;
+    width: 140px;
+    opacity: 0.6;
+    z-index: 20;
+  "
+></audio>
+
 <div id="overlay">
     <button id="start">Start</button>
 </div>
@@ -156,7 +171,6 @@ function nextMode() {
     return mode;
 }
 
-// 🔹 Shuffle array
 function shuffleArray(array) {
     const arr = [...array];
     for (let i = arr.length - 1; i > 0; i--) {
@@ -166,15 +180,11 @@ function shuffleArray(array) {
     return arr;
 }
 
-// 🔹 Next exercise from deck
 function nextExercise() {
     if (!exerciseDeck.length) {
         exerciseDeck = shuffleArray(EXERCISES);
-        // prevent first in new deck from repeating last exercise
         if (exerciseDeck[0] === lastExercise && exerciseDeck.length > 1) {
-            const temp = exerciseDeck[0];
-            exerciseDeck[0] = exerciseDeck[1];
-            exerciseDeck[1] = temp;
+            [exerciseDeck[0], exerciseDeck[1]] = [exerciseDeck[1], exerciseDeck[0]];
         }
     }
     const exercise = exerciseDeck.shift();
@@ -204,7 +214,6 @@ function startPrep() {
 
     const firstExercise = nextExercise();
     playExerciseVideo(firstExercise);
-    speak(firstExercise);
 
     const prepStart = Date.now();
     let lastSpoken = null;
@@ -234,7 +243,6 @@ function scheduleExercise(currentExercise) {
     exerciseTimeout = setTimeout(() => {
         const next = nextExercise();
         playExerciseVideo(next);
-        speak(next);
         scheduleExercise(next);
     }, rand(EX_MIN, EX_MAX));
 }
