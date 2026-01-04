@@ -62,7 +62,7 @@ button:disabled {
   left: 50%;
   transform: translateX(-50%) scale(1);
   border-radius: 50%;
-  opacity: 0;
+  opacity: 0.3; /* Option A: always visible */
   z-index: 15;
   pointer-events: none;
 }
@@ -102,17 +102,17 @@ button:disabled {
 
 /* ===== STRONG, CLEAR PULSE ===== */
 .pulse {
-  animation: pulse 180ms cubic-bezier(0.2, 0.8, 0.2, 1);
+  animation: pulse 420ms cubic-bezier(0.2, 0.8, 0.2, 1); /* Option C */
 }
 
 @keyframes pulse {
   0% {
-    opacity: var(--pulse-opacity);
+    opacity: 1;
     transform: translateX(-50%) scale(1);
     box-shadow: 0 0 0 rgba(255,255,255,0.5);
   }
   100% {
-    opacity: 0;
+    opacity: 0.3; /* Option B: never fully disappears */
     transform: translateX(-50%) scale(var(--pulse-scale));
     box-shadow: 0 0 60px rgba(255,255,255,0);
   }
