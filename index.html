@@ -54,6 +54,69 @@ button {
 button:disabled {
   background: #334155;
 }
+
+/* ===== BEAT PULSE BASE ===== */
+#beatPulse {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%) scale(1);
+  border-radius: 50%;
+  opacity: 0;
+  z-index: 15;
+  pointer-events: none;
+}
+
+/* ===== MODE STYLES (INTENSITY SCALED) ===== */
+.pulse-slow {
+  background: #22c55e;
+  width: 10px;
+  height: 10px;
+  --pulse-scale: 1.4;
+  --pulse-opacity: 0.5;
+}
+
+.pulse-medium {
+  background: #facc15;
+  width: 14px;
+  height: 14px;
+  --pulse-scale: 1.7;
+  --pulse-opacity: 0.65;
+}
+
+.pulse-fast {
+  background: #fb923c;
+  width: 17px;
+  height: 17px;
+  --pulse-scale: 2.0;
+  --pulse-opacity: 0.8;
+}
+
+.pulse-veryfast {
+  background: #ef4444;
+  width: 22px;
+  height: 22px;
+  --pulse-scale: 2.4;
+  --pulse-opacity: 0.95;
+}
+
+/* ===== ANIMATION ===== */
+.pulse {
+  animation: pulse 140ms ease-out;
+}
+
+@keyframes pulse {
+  0% {
+    opacity: var(--pulse-opacity);
+    transform: translateX(-50%) scale(1);
+    box-shadow: 0 0 0 rgba(255,255,255,0.3);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) scale(var(--pulse-scale));
+    box-shadow: 0 0 18px rgba(255,255,255,0);
+  }
+}
 </style>
 </head>
 
@@ -78,22 +141,36 @@ button:disabled {
   <button id="start">Start</button>
 </div>
 
+<div id="beatPulse"></div>
+
 <script>
 /* ================= CONFIG ================= */
 const PREP_TIME = 10000;
 const MODE_TIME = [5000, 35000];
 const EX_TIME = [30000, 90000];
 
-const MODES = ["Stop", "Slow", "Medium", "Fast"];
-const BPM = { Slow: 60, Medium: 100, Fast: 140 };
+const MODES = ["Stop", "Slow", "Medium", "Fast", "Very Fast"];
+
+const BPM = {
+  Slow: 60,
+  Medium: 100,
+  Fast: 140,
+  "Very Fast": 170
+};
+
+const VIBRATION = {
+  Slow: 80,
+  Medium: 120,
+  Fast: 180,
+  "Very Fast": 260
+};
 
 const EXERCISES = Array.from({ length: 15 }, (_, i) => `Exercise ${i + 1}`);
 const EXERCISE_VIDEOS = Object.fromEntries(
   EXERCISES.map((e, i) => [e, `${i + 1}.mp4`])
 );
 
-/* ================= STRONG SESSION RNG ================= */
-// Mulberry32 PRNG
+/* ================= RNG ================= */
 function createRng(seed) {
   return function () {
     seed |= 0;
@@ -104,24 +181,21 @@ function createRng(seed) {
   };
 }
 
-// High-entropy session seed
-const SESSION_SEED =
-  crypto.getRandomValues(new Uint32Array(1))[0] ^ Date.now();
-
-const rng = createRng(SESSION_SEED);
+const rng = createRng(
+  crypto.getRandomValues(new Uint32Array(1))[0] ^ Date.now()
+);
 
 /* ================= STATE ================= */
 const state = {
   exerciseDeck: [],
   modeDeck: [],
-  lastExercise: null,
-  lastMode: null,
   timers: {}
 };
 
 /* ================= ELEMENTS ================= */
 const videoEl = document.getElementById("exerciseVideo");
 const startBtn = document.getElementById("start");
+const beatPulse = document.getElementById("beatPulse");
 
 /* ================= AUDIO ================= */
 const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
@@ -132,10 +206,26 @@ function speak(text) {
   speechSynthesis.speak(new SpeechSynthesisUtterance(text));
 }
 
-function vibrate(ms = 200) {
-  navigator.vibrate?.(ms);
+function vibrateForMode(mode) {
+  navigator.vibrate?.(VIBRATION[mode] || 0);
 }
 
+/* ===== VISUAL PULSE ===== */
+function setPulseStyle(mode) {
+  beatPulse.className = "";
+  if (mode === "Slow") beatPulse.classList.add("pulse-slow");
+  else if (mode === "Medium") beatPulse.classList.add("pulse-medium");
+  else if (mode === "Fast") beatPulse.classList.add("pulse-fast");
+  else if (mode === "Very Fast") beatPulse.classList.add("pulse-veryfast");
+}
+
+function triggerPulse() {
+  beatPulse.classList.remove("pulse");
+  void beatPulse.offsetWidth;
+  beatPulse.classList.add("pulse");
+}
+
+/* ===== METRONOME ===== */
 function startMetronome(bpm) {
   clearInterval(metronomeInterval);
   if (!bpm) return;
@@ -147,6 +237,7 @@ function startMetronome(bpm) {
     osc.connect(audioCtx.destination);
     osc.start();
     osc.stop(audioCtx.currentTime + 0.05);
+    triggerPulse();
   }, interval);
 }
 
@@ -154,62 +245,52 @@ function startMetronome(bpm) {
 const rand = (min, max) =>
   Math.floor(rng() * (max - min + 1)) + min;
 
-function shuffleSeeded(array) {
+function shuffle(array) {
   for (let i = array.length - 1; i > 0; i--) {
     const j = Math.floor(rng() * (i + 1));
     [array[i], array[j]] = [array[j], array[i]];
   }
+  return array;
 }
 
-function rotateDeck(deck) {
+function rotate(deck) {
   const n = Math.floor(rng() * deck.length);
   return deck.slice(n).concat(deck.slice(0, n));
 }
 
-/* ================= EXERCISE SELECTION ================= */
+/* ================= EXERCISE ================= */
 function nextExercise() {
   if (!state.exerciseDeck.length) {
-    state.exerciseDeck = rotateDeck(
-      shuffleSeeded([...EXERCISES]) || [...EXERCISES]
-    );
-
-    if (state.exerciseDeck[0] === state.lastExercise) {
-      [state.exerciseDeck[0], state.exerciseDeck[1]] =
-      [state.exerciseDeck[1], state.exerciseDeck[0]];
-    }
+    state.exerciseDeck = rotate(shuffle([...EXERCISES]));
   }
-
-  state.lastExercise = state.exerciseDeck.shift();
-  return state.lastExercise;
+  return state.exerciseDeck.shift();
 }
 
-/* ================= MODE SELECTION ================= */
+/* ================= MODE ================= */
 function nextMode() {
   if (!state.modeDeck.length) {
-    state.modeDeck = rotateDeck(
-      shuffleSeeded([...MODES]) || [...MODES]
-    );
-
-    if (state.modeDeck[0] === state.lastMode) {
-      [state.modeDeck[0], state.modeDeck[1]] =
-      [state.modeDeck[1], state.modeDeck[0]];
-    }
+    state.modeDeck = rotate(shuffle([...MODES]));
   }
-
-  state.lastMode = state.modeDeck.shift();
-  return state.lastMode;
+  return state.modeDeck.shift();
 }
 
 /* ================= VIDEO ================= */
 function playExerciseVideo(exercise) {
   const src = EXERCISE_VIDEOS[exercise];
   if (!src) return;
-
   videoEl.pause();
   videoEl.loop = true;
   videoEl.src = src;
   videoEl.load();
   videoEl.play().catch(() => {});
+}
+
+/* ================= FULLSCREEN ================= */
+function requestFullscreen() {
+  const el = document.documentElement;
+  el.requestFullscreen?.() ||
+  el.webkitRequestFullscreen?.() ||
+  el.msRequestFullscreen?.();
 }
 
 /* ================= GAME FLOW ================= */
@@ -228,7 +309,7 @@ function startPrep() {
       (PREP_TIME - (Date.now() - start)) / 1000
     );
 
-    if ([3, 2, 1].includes(remaining) && remaining !== spoken) {
+    if ([3,2,1].includes(remaining) && remaining !== spoken) {
       speak(remaining);
       spoken = remaining;
     }
@@ -257,14 +338,15 @@ function scheduleExercise(current) {
 function changeMode() {
   const mode = nextMode();
   speak(mode);
-  vibrate();
+  vibrateForMode(mode);
+  setPulseStyle(mode);
   startMetronome(BPM[mode]);
-
   state.timers.mode = setTimeout(changeMode, rand(...MODE_TIME));
 }
 
 /* ================= EVENTS ================= */
 startBtn.addEventListener("click", async () => {
+  requestFullscreen();
   await audioCtx.resume();
   videoEl.play().catch(() => {});
   startPrep();
